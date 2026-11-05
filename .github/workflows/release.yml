@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, for example v0.0.0.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.3"
+          cache: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build frontend
+        working-directory: web
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - name: Build four release packages
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+        run: |
+          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){3}$ ]]
+          mkdir -p "$RUNNER_TEMP/release" "$RUNNER_TEMP/package"
+          cp LICENSE NOTICE "$RUNNER_TEMP/package/"
+          mkdir -p "$RUNNER_TEMP/package/licenses"
+          cp -R web/public/licenses/. "$RUNNER_TEMP/package/licenses/"
+          printf 'Source: https://github.com/%s/tree/%s\n' "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)" > "$RUNNER_TEMP/package/SOURCE"
+          for arch in amd64 arm64; do
+            for component in panel agent; do
+              GOARCH="$arch" go build -buildvcs=false -trimpath \
+                -ldflags="-s -w -X main.version=$VERSION" \
+                -o "$RUNNER_TEMP/package/sing-box-$component" "./cmd/$component"
+              tar -C "$RUNNER_TEMP/package" -czf \
+                "$RUNNER_TEMP/release/sing-box-$component-linux-$arch.tar.gz" "sing-box-$component" LICENSE NOTICE SOURCE licenses
+            done
+          done
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$VERSION" >/dev/null 2>&1; then
+            options=()
+            if [[ "${VERSION##*.}" != 0 ]]; then options+=(--prerelease --latest=false); fi
+            gh release create "$VERSION" --verify-tag --generate-notes --title "$VERSION" "${options[@]}"
+          fi
+          gh release upload "$VERSION" "$RUNNER_TEMP"/release/*.tar.gz --clobber
+
+  images:
+    needs: binaries
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - component: agent
+            file: Dockerfile.agent
+          - component: panel
+            file: Dockerfile.panel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image tags
+        id: image
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          repository=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          image="ghcr.io/$repository-$COMPONENT"
+          {
+            echo 'tags<<EOF'
+            echo "$image:${VERSION#v}"
+            if [[ "${VERSION##*.}" == 0 ]]; then echo "$image:latest"; fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          build-args: VERSION=${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.VERSION }}

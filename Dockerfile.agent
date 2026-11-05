@@ -1,0 +1,27 @@
+ARG GO_VERSION=1.27.3
+
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG VERSION=dev
+WORKDIR /src
+COPY go.mod ./
+COPY cmd ./cmd
+COPY internal ./internal
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -buildvcs=false -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /out/sing-box-agent ./cmd/agent
+
+FROM alpine:3.24
+RUN apk add --no-cache ca-certificates
+LABEL org.opencontainers.image.title="sing-box manager agent" \
+      org.opencontainers.image.source="https://github.com/zahuiron/sing-box-manager"
+COPY --from=build /out/sing-box-agent /usr/local/bin/sing-box-agent
+COPY LICENSE NOTICE /usr/share/licenses/sing-box-manager/
+COPY licenses/Go-LICENSE.txt licenses/Go-PATENTS.txt /usr/share/licenses/sing-box-manager/licenses/
+RUN mkdir -p /etc/sing-box-manager /etc/sing-box /var/lib/sing-box /root/.local/share/certmagic
+ENV SING_BOX_MANAGER_ENVIRONMENT=docker SING_BOX_BINARY=/var/lib/sing-box/bin/sing-box SING_BOX_VERSION=latest \
+    AGENT_TOKEN_FILE=/var/lib/sing-box/agent.key
+EXPOSE 9091
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/sing-box-agent"]
+CMD ["-env"]

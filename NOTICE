@@ -1,0 +1,29 @@
+sing-box manager
+
+This program is released under GPL-3.0-or-later, without any warranty.
+You may redistribute and modify it under that license. See LICENSE.
+Source: https://github.com/zahuiron/sing-box-manager
+
+Panel UI portions: sing-box-dashboard
+https://github.com/SagerNet/sing-box-dashboard/tree/3e4bf08e5bf5b9417cf9c36e5a2d5abcb21bdd34
+Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
+GPL-3.0-or-later; the original additional notice is retained in
+web/src/vendor/LICENSE and licenses/sing-box-dashboard.txt in Panel builds.
+Modified 2026-11-05: adapted UI controls, styles, state and translations.
+
+Panel Schema and configuration editor portions: S-Panel
+Original files: web/lib/schema.mjs, web/lib/validation.mjs, web/editor.mjs.
+GPL-3.0-or-later; see web/src/schema/LICENSE.
+Modified 2026-11-05: formatting, version messages and React/TypeScript integration.
+
+Panel bundled configuration Schema: sing-box
+https://github.com/SagerNet/sing-box
+Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
+GPL-3.0-or-later; see licenses/sing-box-LICENSE.txt for the original notices.
+
+Panel icons: Material Design Icons (@material-design-icons/svg), Apache-2.0.
+Panel fonts: Schibsted Grotesk, Source Serif 4 and IBM Plex Mono, OFL-1.1.
+Their licenses and JavaScript dependency notices accompany Panel builds.
+
+Go runtime and standard library: Copyright 2009 The Go Authors.
+See licenses/Go-LICENSE.txt and licenses/Go-PATENTS.txt.

@@ -1,0 +1,15 @@
+services:
+  panel:
+    image: ghcr.io/zahuiron/sing-box-manager-panel:${MANAGER_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      PANEL_LISTEN: "0.0.0.0:${PANEL_PORT:-18080}"
+      PANEL_SECRET: "${PANEL_SECRET:-}"
+      PANEL_SECRET_FILE: "${PANEL_SECRET_FILE:-/var/lib/sing-box-manager/panel.key}"
+      PANEL_DATA_DIR: /var/lib/sing-box-manager
+      PANEL_TLS_CERT: "${PANEL_TLS_CERT:-}"
+      PANEL_TLS_KEY: "${PANEL_TLS_KEY:-}"
+    ports:
+      - "${PANEL_PORT:-18080}:${PANEL_PORT:-18080}"
+    volumes:
+      - "${PANEL_DATA_DIR:-./panel-data}:/var/lib/sing-box-manager"
