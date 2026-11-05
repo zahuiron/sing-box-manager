@@ -34,7 +34,6 @@ const documents = {
   "GPL-3.0.txt": "LICENSE",
   "sing-box-dashboard.txt": "web/src/vendor/LICENSE",
   "Apache-2.0.txt": "web/src/vendor/Apache-2.0.txt",
-  "s-panel-schema.txt": "web/src/schema/LICENSE",
   "sing-box-LICENSE.txt": "licenses/sing-box-LICENSE.txt",
   "Go-LICENSE.txt": "licenses/Go-LICENSE.txt",
   "Go-PATENTS.txt": "licenses/Go-PATENTS.txt",

@@ -123,7 +123,7 @@ export async function connectPanel(panel: PanelTarget, signal?: AbortSignal) {
     typeof session.uptime_seconds !== "number"
   )
     throw new Error(
-      "不是有效的 sing-box manager 面板 / Not a valid sing-box manager panel",
+      "不是有效的 sing-box-manager-panel / Not a valid sing-box-manager-panel",
     );
   return session;
 }

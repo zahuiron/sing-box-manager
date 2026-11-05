@@ -1,4 +1,3 @@
-// Portions adapted from S-Panel (GPL-3.0-or-later); modified 2026-11-05. See web/THIRD_PARTY.md.
 import {
   useEffect,
   useId,

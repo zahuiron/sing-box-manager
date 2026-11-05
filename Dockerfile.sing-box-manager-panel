@@ -20,18 +20,18 @@ COPY cmd ./cmd
 COPY internal ./internal
 COPY --from=web /src/internal/panel/ui/dist ./internal/panel/ui/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -buildvcs=false -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /out/sing-box-panel ./cmd/panel
+    go build -buildvcs=false -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /out/sing-box-manager-panel ./cmd/sing-box-manager-panel
 
 FROM alpine:3.24
 RUN apk add --no-cache ca-certificates
-LABEL org.opencontainers.image.title="sing-box manager panel" \
+LABEL org.opencontainers.image.title="sing-box-manager-panel" \
       org.opencontainers.image.source="https://github.com/zahuiron/sing-box-manager"
-COPY --from=build /out/sing-box-panel /usr/local/bin/sing-box-panel
-COPY LICENSE NOTICE /usr/share/licenses/sing-box-manager/
-COPY --from=web /src/web/public/licenses/ /usr/share/licenses/sing-box-manager/licenses/
-ENV PANEL_LISTEN=0.0.0.0:18080 PANEL_DATA_DIR=/var/lib/sing-box-manager \
-    PANEL_SECRET_FILE=/var/lib/sing-box-manager/panel.key
+COPY --from=build /out/sing-box-manager-panel /usr/local/bin/sing-box-manager-panel
+COPY LICENSE NOTICE /usr/share/licenses/sing-box-manager-panel/
+COPY --from=web /src/web/public/licenses/ /usr/share/licenses/sing-box-manager-panel/licenses/
+ENV PANEL_LISTEN=0.0.0.0:18080 PANEL_DATA_DIR=/var/lib/sing-box-manager-panel \
+    PANEL_SECRET_FILE=/var/lib/sing-box-manager-panel/panel.key
 EXPOSE 18080
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["/usr/local/bin/sing-box-panel"]
+ENTRYPOINT ["/usr/local/bin/sing-box-manager-panel"]
 CMD []

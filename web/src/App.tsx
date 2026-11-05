@@ -50,7 +50,7 @@ function Setup({
   return (
     <div className="setup">
       <div className="setup-panel">
-        <div className="setup-brand">sing-box manager</div>
+        <div className="setup-brand">sing-box-manager</div>
         <form
           onSubmit={(event) => {
             event.preventDefault();

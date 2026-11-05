@@ -17,7 +17,7 @@ func GenerateToken() (string, error) {
 
 func defaultEnvConfig() Config {
 	return Config{Listen: ":9091", Service: ServiceConfig{Driver: "process", Name: "sing-box",
-		Binary: "sing-box", Config: "/etc/sing-box/config.json", WorkDir: "/var/lib/sing-box"}}
+		Binary: "sing-box", Config: "/etc/sing-box-manager-agent/sing-box.json", WorkDir: "/var/lib/sing-box-manager-agent"}}
 }
 
 func applyEnvironment(cfg Config) (Config, error) {
@@ -86,7 +86,7 @@ func LoadEnvironment() (Config, error) {
 	if err != nil {
 		return cfg, err
 	}
-	return prepareConfig(cfg, "agent.json")
+	return prepareConfig(cfg, "sing-box-manager-agent.json")
 }
 
 func WriteEnvironmentConfig(basePath, outputPath string) error {
@@ -121,7 +121,7 @@ func WriteEnvironmentConfig(basePath, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(outputPath), ".sbm-config-*")
+	f, err := os.CreateTemp(filepath.Dir(outputPath), ".sing-box-manager-agent-config-*")
 	if err != nil {
 		return err
 	}

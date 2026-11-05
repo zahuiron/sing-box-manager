@@ -237,7 +237,7 @@ func (s *Store) persist(data database) error {
 }
 
 func writePrivate(path string, data []byte) error {
-	f, err := os.CreateTemp(filepath.Dir(path), ".panel-*")
+	f, err := os.CreateTemp(filepath.Dir(path), ".sing-box-manager-panel-*")
 	if err != nil {
 		return err
 	}

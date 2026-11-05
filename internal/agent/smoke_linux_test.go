@@ -42,9 +42,9 @@ func processUsage(pid int) (int64, int64, error) {
 }
 
 func TestExecutableSmoke(t *testing.T) {
-	binary := os.Getenv("SBM_AGENT_BINARY")
+	binary := os.Getenv("SING_BOX_MANAGER_AGENT_BINARY")
 	if binary == "" {
-		t.Skip("set SBM_AGENT_BINARY to test the built executable")
+		t.Skip("set SING_BOX_MANAGER_AGENT_BINARY to test the built executable")
 	}
 	serviceConfig, _ := fixtureService(t)
 	dir := t.TempDir()
@@ -105,8 +105,8 @@ func TestExecutableSmoke(t *testing.T) {
 			}
 		}
 	}
-	ready := waitEvent("agent listening on https://")
-	_, address, _ := strings.Cut(ready, "agent listening on ")
+	ready := waitEvent("listening on https://")
+	_, address, _ := strings.Cut(ready, "listening on ")
 	address = strings.Fields(address)[0]
 	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
 	defer transport.CloseIdleConnections()

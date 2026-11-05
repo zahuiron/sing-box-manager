@@ -4,7 +4,7 @@ umask 077
 
 usage() {
     cat <<'EOF'
-Usage: sh install-agent.sh [options]
+Usage: sh install-sing-box-manager-agent.sh [options]
   Automatically detects Debian-based Linux / Alpine and x86_64 / ARM64.
   --port PORT               Agent HTTPS port (default: 9091 on first install)
   --listen ADDRESS          Bind address, overrides --port
@@ -88,7 +88,7 @@ case " $distribution " in
     *" alpine "*)
         system=Alpine
         driver=openrc
-        unit=/etc/init.d/sing-box-agent
+        unit=/etc/init.d/sing-box-manager-agent
         for tool in rc-service rc-update supervise-daemon; do
             command -v "$tool" >/dev/null 2>&1 || fail "Alpine requires OpenRC ($tool is missing)."
         done
@@ -96,7 +96,7 @@ case " $distribution " in
     *" debian "*|*" ubuntu "*)
         system=Debian
         driver=systemd
-        unit=/etc/systemd/system/sing-box-agent.service
+        unit=/etc/systemd/system/sing-box-manager-agent.service
         command -v systemctl >/dev/null 2>&1 || fail 'Debian-based systems require systemd.';;
     *) fail "Unsupported Linux distribution: $distribution. Use Debian-based Linux or Alpine.";;
 esac
@@ -109,9 +109,9 @@ service_running() {
     if [ "$driver" = systemd ]; then systemctl is-active --quiet "$1"; else rc-service "$1" status >/dev/null 2>&1; fi
 }
 
-target=/usr/local/bin/sing-box-agent
-config=/etc/sing-box-manager/agent.json
-stage=$(mktemp -d "${TMPDIR:-/tmp}/sbm-agent.XXXXXX")
+target=/usr/local/bin/sing-box-manager-agent
+config=/etc/sing-box-manager-agent/config.json
+stage=$(mktemp -d "${TMPDIR:-/tmp}/sing-box-manager-agent.XXXXXX")
 committed=0
 was_running=0
 core_service=
@@ -120,7 +120,7 @@ core_touched=0
 core_present=0
 core_enabled=
 core_unit=
-service_running sing-box-agent && was_running=1 || :
+service_running sing-box-manager-agent && was_running=1 || :
 
 cleanup() {
     status=$?
@@ -128,7 +128,7 @@ cleanup() {
     set +e
     if [ "$status" -ne 0 ] && [ "$committed" = 1 ]; then
         printf '%s\n' 'Deployment failed; restoring previous Agent files.' >&2
-        control_service stop sing-box-agent
+        control_service stop sing-box-manager-agent
         for name in binary config unit; do
             case "$name" in binary) destination=$target;; config) destination=$config;; unit) destination=$unit;; esac
             if [ -f "$stage/previous-$name" ]; then
@@ -150,9 +150,9 @@ cleanup() {
             fi
             if [ "$core_running" = 1 ]; then control_service start "$core_service"; fi
         fi
-        if [ "$was_running" = 1 ]; then control_service start sing-box-agent; fi
+        if [ "$was_running" = 1 ]; then control_service start sing-box-manager-agent; fi
     fi
-    case "$stage" in "${TMPDIR:-/tmp}"/sbm-agent.*) rm -rf -- "$stage";; esac
+    case "$stage" in "${TMPDIR:-/tmp}"/sing-box-manager-agent.*) rm -rf -- "$stage";; esac
     exit "$status"
 }
 trap cleanup EXIT
@@ -178,20 +178,20 @@ else
         *[!A-Za-z0-9._-]*) fail 'Invalid release version.';;
         *) release=https://github.com/zahuiron/sing-box-manager/releases/download/$version;;
     esac
-    asset=sing-box-agent-linux-$arch.tar.gz
+    asset=sing-box-manager-agent-linux-$arch.tar.gz
     fetch "$release/$asset" "$stage/package.tar.gz" || fail 'Download failed; no release may be published yet. Use --binary for local deployment.'
-    tar -xzf "$stage/package.tar.gz" -O sing-box-agent > "$stage/agent"
+    tar -xzf "$stage/package.tar.gz" -O sing-box-manager-agent > "$stage/agent"
 fi
 chmod 755 "$stage/agent"
 
-mkdir -p /usr/local/bin /etc/sing-box-manager
+mkdir -p /usr/local/bin /etc/sing-box-manager-agent
 if [ "$install_core" = 1 ]; then
     "$stage/agent" -config "$config" -install-sing-box -sing-box-version "$core_version"
 fi
 "$stage/agent" -config "$config" -write-config "$stage/agent.json"
 service_info=$("$stage/agent" -config "$stage/agent.json" -service-info)
 core_service=${service_info#* }
-case "$core_service" in sing-box-agent|sing-box-agent.service|sing-box-panel|sing-box-panel.service) fail 'Core service name conflicts with a manager service.';; esac
+case "$core_service" in sing-box-manager-agent|sing-box-manager-agent.service|sing-box-manager-panel|sing-box-manager-panel.service) fail 'Core service name conflicts with a manager service.';; esac
 if [ "$driver" = systemd ]; then
     core_load=$(systemctl show "$core_service" --property=LoadState --value 2>/dev/null || :)
     case "$core_load" in
@@ -224,12 +224,12 @@ fi
 if [ "$driver" = systemd ]; then
     cat > "$stage/unit" <<'EOF'
 [Unit]
-Description=sing-box manager Agent
+Description=sing-box-manager-agent
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/sing-box-agent -config /etc/sing-box-manager/agent.json
+ExecStart=/usr/local/bin/sing-box-manager-agent -config /etc/sing-box-manager-agent/config.json
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=3
@@ -243,16 +243,16 @@ EOF
 else
     cat > "$stage/unit" <<'EOF'
 #!/sbin/openrc-run
-description="sing-box manager Agent"
+description="sing-box-manager-agent"
 supervisor="supervise-daemon"
-command="/usr/local/bin/sing-box-agent"
-command_args="-config /etc/sing-box-manager/agent.json"
+command="/usr/local/bin/sing-box-manager-agent"
+command_args="-config /etc/sing-box-manager-agent/config.json"
 respawn_delay=3
 respawn_max=5
 respawn_period=60
 retry="TERM/10/KILL/1"
-output_log="/var/log/sing-box-agent.log"
-error_log="/var/log/sing-box-agent.log"
+output_log="/var/log/sing-box-manager-agent.log"
+error_log="/var/log/sing-box-manager-agent.log"
 extra_started_commands="reload"
 depend() { after net dns; }
 reload() {
@@ -269,7 +269,7 @@ for name in binary config unit; do
     if [ -f "$original" ]; then cp -p "$original" "$stage/previous-$name"; fi
 done
 committed=1
-if [ "$was_running" = 1 ]; then control_service stop sing-box-agent; fi
+if [ "$was_running" = 1 ]; then control_service stop sing-box-manager-agent; fi
 if [ "$core_present" = 1 ]; then
     core_touched=1
     if [ "$core_running" = 1 ]; then control_service stop "$core_service"; fi
@@ -291,9 +291,9 @@ mv -f "$config.new" "$config"
 cp -p "$stage/unit" "$unit"
 
 if [ "$driver" = systemd ]; then systemctl daemon-reload; fi
-control_service start sing-box-agent
+control_service start sing-box-manager-agent
 sleep 1
-service_running sing-box-agent || fail 'Agent did not remain running.'
-if [ "$driver" = systemd ]; then systemctl enable sing-box-agent; else rc-update add sing-box-agent default; fi
+service_running sing-box-manager-agent || fail 'Agent did not remain running.'
+if [ "$driver" = systemd ]; then systemctl enable sing-box-manager-agent; else rc-update add sing-box-manager-agent default; fi
 committed=0
-printf 'Agent deployed (%s). Config: %s\nNode token is stored in the protected config file.\n' "$driver" "$config"
+printf 'sing-box-manager-agent deployed (%s). Config: %s\nNode token is stored in the protected config file.\n' "$driver" "$config"

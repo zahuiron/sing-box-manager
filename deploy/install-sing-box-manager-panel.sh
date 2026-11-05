@@ -4,13 +4,13 @@ umask 077
 
 usage() {
     cat <<'EOF'
-Usage: sh install-panel.sh [options]
+Usage: sh install-sing-box-manager-panel.sh [options]
   Automatically detects Debian-based Linux / Alpine and x86_64 / ARM64.
   --port PORT             Panel port (default: 18080)
   --listen ADDRESS        Bind address; overrides --port (default: 0.0.0.0:18080)
   --secret SECRET         Panel access secret; preserve existing or generate one
   --cert PATH --key PATH  Optional HTTPS certificate and private key
-  --data-dir PATH         Data directory (default: /var/lib/sing-box-manager)
+  --data-dir PATH         Data directory (default: /var/lib/sing-box-manager-panel)
   --binary PATH           Local panel binary; otherwise download a release
   --version VERSION       Panel release version (default: latest)
   --help                  Show this message
@@ -68,7 +68,7 @@ case " $distribution " in
     *" alpine "*)
         system=Alpine
         driver=openrc
-        unit=/etc/init.d/sing-box-panel
+        unit=/etc/init.d/sing-box-manager-panel
         for tool in rc-service rc-update; do
             command -v "$tool" >/dev/null 2>&1 || fail "Alpine requires OpenRC ($tool is missing)."
         done
@@ -76,42 +76,42 @@ case " $distribution " in
     *" debian "*|*" ubuntu "*)
         system=Debian
         driver=systemd
-        unit=/etc/systemd/system/sing-box-panel.service
+        unit=/etc/systemd/system/sing-box-manager-panel.service
         command -v systemctl >/dev/null 2>&1 || fail 'Debian-based systems require systemd.';;
     *) fail "Unsupported Linux distribution: $distribution. Use Debian-based Linux or Alpine.";;
 esac
 printf 'Detected: %s, %s -> %s, %s\n' "$system" "$machine" "$arch" "$driver"
 
-target=/usr/local/bin/sing-box-panel
-config=/etc/sing-box-manager/panel.json
+target=/usr/local/bin/sing-box-manager-panel
+config=/etc/sing-box-manager-panel/config.json
 if [ ! -f "$config" ] && [ -z "${PANEL_DATA_DIR:-}" ]; then
-    PANEL_DATA_DIR=/var/lib/sing-box-manager
+    PANEL_DATA_DIR=/var/lib/sing-box-manager-panel
     export PANEL_DATA_DIR
 fi
-stage=$(mktemp -d "${TMPDIR:-/tmp}/sbm-panel.XXXXXX")
+stage=$(mktemp -d "${TMPDIR:-/tmp}/sing-box-manager-panel.XXXXXX")
 committed=0
 was_running=0
 if [ "$driver" = systemd ]; then
-    systemctl is-active --quiet sing-box-panel && was_running=1 || :
+    systemctl is-active --quiet sing-box-manager-panel && was_running=1 || :
 else
-    rc-service sing-box-panel status >/dev/null 2>&1 && was_running=1 || :
+    rc-service sing-box-manager-panel status >/dev/null 2>&1 && was_running=1 || :
 fi
 cleanup() {
     status=$?
     trap - EXIT HUP INT TERM
     set +e
     if [ "$status" -ne 0 ] && [ "$committed" = 1 ]; then
-        if [ "$driver" = systemd ]; then systemctl stop sing-box-panel; else rc-service sing-box-panel stop; fi
+        if [ "$driver" = systemd ]; then systemctl stop sing-box-manager-panel; else rc-service sing-box-manager-panel stop; fi
         for name in binary config unit; do
             case "$name" in binary) destination=$target;; config) destination=$config;; unit) destination=$unit;; esac
             if [ -f "$stage/previous-$name" ]; then cp -p "$stage/previous-$name" "$destination"; else rm -f "$destination"; fi
         done
         if [ "$driver" = systemd ]; then systemctl daemon-reload; fi
         if [ "$was_running" = 1 ]; then
-            if [ "$driver" = systemd ]; then systemctl start sing-box-panel; else rc-service sing-box-panel start; fi
+            if [ "$driver" = systemd ]; then systemctl start sing-box-manager-panel; else rc-service sing-box-manager-panel start; fi
         fi
     fi
-    case "$stage" in "${TMPDIR:-/tmp}"/sbm-panel.*) rm -rf -- "$stage";; esac
+    case "$stage" in "${TMPDIR:-/tmp}"/sing-box-manager-panel.*) rm -rf -- "$stage";; esac
     exit "$status"
 }
 trap cleanup EXIT
@@ -130,23 +130,23 @@ else
         *[!A-Za-z0-9._-]*) fail 'Invalid release version.';;
         *) release=https://github.com/zahuiron/sing-box-manager/releases/download/$version;;
     esac
-    asset=sing-box-panel-linux-$arch.tar.gz
+    asset=sing-box-manager-panel-linux-$arch.tar.gz
     fetch "$release/$asset" "$stage/package.tar.gz" || fail 'No release available. Use a local binary.'
-    tar -xzf "$stage/package.tar.gz" -O sing-box-panel > "$stage/panel"
+    tar -xzf "$stage/package.tar.gz" -O sing-box-manager-panel > "$stage/panel"
 fi
 chmod 755 "$stage/panel"
-mkdir -p /usr/local/bin /etc/sing-box-manager
+mkdir -p /usr/local/bin /etc/sing-box-manager-panel
 "$stage/panel" -config "$config" -write-config "$stage/panel.json"
 "$stage/panel" -config "$stage/panel.json" -init
 unset PANEL_SECRET
 if [ "$driver" = systemd ]; then
     cat > "$stage/unit" <<'EOF'
 [Unit]
-Description=sing-box manager Panel
+Description=sing-box-manager-panel
 After=network.target
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/sing-box-panel -config /etc/sing-box-manager/panel.json
+ExecStart=/usr/local/bin/sing-box-manager-panel -config /etc/sing-box-manager-panel/config.json
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=3
@@ -158,13 +158,13 @@ EOF
 else
     cat > "$stage/unit" <<'EOF'
 #!/sbin/openrc-run
-description="sing-box manager Panel"
-command="/usr/local/bin/sing-box-panel"
-command_args="-config /etc/sing-box-manager/panel.json"
+description="sing-box-manager-panel"
+command="/usr/local/bin/sing-box-manager-panel"
+command_args="-config /etc/sing-box-manager-panel/config.json"
 command_background=yes
 pidfile="/run/${RC_SVCNAME}.pid"
-output_log="/var/log/sing-box-panel.log"
-error_log="/var/log/sing-box-panel.log"
+output_log="/var/log/sing-box-manager-panel.log"
+error_log="/var/log/sing-box-manager-panel.log"
 extra_started_commands="reload"
 depend() { after net dns; }
 reload() {
@@ -188,16 +188,16 @@ mv -f "$config.new" "$config"
 cp -p "$stage/unit" "$unit"
 if [ "$driver" = systemd ]; then
     systemctl daemon-reload
-    systemctl restart sing-box-panel
+    systemctl restart sing-box-manager-panel
     sleep 1
-    systemctl is-active --quiet sing-box-panel
-    systemctl enable sing-box-panel
+    systemctl is-active --quiet sing-box-manager-panel
+    systemctl enable sing-box-manager-panel
 else
-    if [ "$was_running" = 1 ]; then rc-service sing-box-panel stop; fi
-    rc-service sing-box-panel start
+    if [ "$was_running" = 1 ]; then rc-service sing-box-manager-panel stop; fi
+    rc-service sing-box-manager-panel start
     sleep 1
-    rc-service sing-box-panel status
-    rc-update add sing-box-panel default
+    rc-service sing-box-manager-panel status
+    rc-update add sing-box-manager-panel default
 fi
 committed=0
-printf 'Panel deployed (%s). Runtime config: %s\nConnect with URL and the secret saved in this file.\n' "$driver" "$config"
+printf 'sing-box-manager-panel deployed (%s). Runtime config: %s\nConnect with URL and the secret saved in this file.\n' "$driver" "$config"

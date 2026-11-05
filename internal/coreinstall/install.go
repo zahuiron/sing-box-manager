@@ -89,7 +89,7 @@ func Install(ctx context.Context, version, destination string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
 		return "", err
 	}
-	archive, err := os.CreateTemp(filepath.Dir(destination), ".sing-box-download-*")
+	archive, err := os.CreateTemp(filepath.Dir(destination), ".sing-box-manager-agent-download-*")
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +131,7 @@ func Install(ctx context.Context, version, destination string) (string, error) {
 		if header.Typeflag != tar.TypeReg || header.Size <= 0 || header.Size > 256<<20 {
 			return "", errors.New("invalid sing-box executable in archive")
 		}
-		binary, err := os.CreateTemp(filepath.Dir(destination), ".sing-box-binary-*")
+		binary, err := os.CreateTemp(filepath.Dir(destination), ".sing-box-manager-agent-binary-*")
 		if err != nil {
 			return "", err
 		}
@@ -186,7 +186,7 @@ func get(ctx context.Context, client *http.Client, url string) (*http.Response, 
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("User-Agent", "sing-box-manager-installer")
+	request.Header.Set("User-Agent", "sing-box-manager-agent")
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, err

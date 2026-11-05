@@ -88,7 +88,7 @@ func LoadRuntime(path string, overrides RuntimeConfig, writing bool) (RuntimeCon
 		return cfg, errors.New("panel port must be between 1 and 65535")
 	}
 	if cfg.DataDir == "" {
-		cfg.DataDir = "panel-data"
+		cfg.DataDir = "/var/lib/sing-box-manager-panel"
 	}
 	for _, path := range []*string{&cfg.DataDir, &cfg.Cert, &cfg.Key} {
 		if *path != "" {

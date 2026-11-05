@@ -21,8 +21,8 @@ import (
 var version = "dev"
 
 func main() {
-	flag.CommandLine = flag.NewFlagSet("sing-box-panel", flag.ExitOnError)
-	log.SetPrefix("sing-box-panel: ")
+	flag.CommandLine = flag.NewFlagSet("sing-box-manager-panel", flag.ExitOnError)
+	log.SetPrefix("sing-box-manager-panel: ")
 	config := flag.String("config", "", "optional runtime JSON configuration")
 	writeConfig := flag.String("write-config", "", "write environment settings to a runtime configuration and exit")
 	listen := flag.String("listen", "", "HTTP(S) listen address")
@@ -45,7 +45,7 @@ func main() {
 		return
 	}
 	if *showVersion {
-		fmt.Printf("sing-box-panel %s\n", version)
+		fmt.Printf("sing-box-manager-panel %s\n", version)
 		return
 	}
 	cfg, err := panel.LoadRuntime(*config, panel.RuntimeConfig{Listen: *listen, DataDir: *dir, Secret: *secret, Cert: *cert, Key: *key}, *writeConfig != "")

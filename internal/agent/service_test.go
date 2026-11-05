@@ -16,7 +16,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("SBM_TEST_CORE") == "1" && len(os.Args) > 1 {
+	if os.Getenv("SING_BOX_MANAGER_AGENT_TEST_CORE") == "1" && len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version", "check", "run":
 			os.Exit(testCore(os.Args[1:]))
@@ -63,7 +63,7 @@ func testCore(args []string) int {
 
 func fixtureService(t *testing.T) (ServiceConfig, Service) {
 	t.Helper()
-	t.Setenv("SBM_TEST_CORE", "1")
+	t.Setenv("SING_BOX_MANAGER_AGENT_TEST_CORE", "1")
 	binary, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-# sing-box manager
+# sing-box-manager
 
 一个面板，管理多台服务器上的 [sing-box](https://github.com/SagerNet/sing-box)。
 
@@ -30,7 +30,7 @@ Go 后端使用标准库，前端构建后嵌入 Panel 程序，无需额外数�
 
 ## 快速开始
 
-当前测试版为 `0.0.0.1`，下列命令显式指定该版本。测试版不更新 `latest`。
+下列命令使用测试版 `0.0.0.2`。脚本的 `--version` 使用 `v0.0.0.2`，镜像标签使用 `0.0.0.2`；测试版不更新 `latest`。
 
 以下命令以 root 执行。Panel 所在机器需能访问各 Agent 的管理端口。
 
@@ -39,10 +39,10 @@ Go 后端使用标准库，前端构建后嵌入 Panel 程序，无需额外数�
 在管理面板所在机器执行：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-panel.sh | sh -s -- --version v0.0.0.1 --port 18080
+curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-sing-box-manager-panel.sh | sh -s -- --version v0.0.0.2 --port 18080
 ```
 
-安装后打开 `http://<面板地址>:18080`，填写面板 URL 和密钥，名称可留空。首次安装自动生成密钥，保存在 `/etc/sing-box-manager/panel.json` 的 `secret`；重复部署保留已有密钥。也可通过 `--secret` 指定。
+安装后打开 `http://<面板地址>:18080`，填写面板 URL 和密钥，名称可留空。首次安装自动生成密钥，保存在 `/etc/sing-box-manager-panel/config.json` 的 `secret`；重复部署保留已有密钥。也可通过 `--secret` 指定。
 
 默认监听 `0.0.0.0:18080`。使用 HTTPS 时，可配置反向代理，或通过 `--cert`、`--key` 指定 Panel 证书。
 
@@ -51,10 +51,10 @@ curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/depl
 在每台运行 sing-box 的服务器上，先准备单文件配置与已签发的 TLS 证书，再执行：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-agent.sh | sh -s -- --version v0.0.0.1 --port 9091
+curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-sing-box-manager-agent.sh | sh -s -- --version v0.0.0.2 --port 9091
 ```
 
-默认配置路径为 `/etc/sing-box/config.json`，工作目录为 `/var/lib/sing-box`。Agent 自动从配置中定位已有证书或 ACME 缓存，也可通过参数覆盖路径。
+默认配置路径为 `/etc/sing-box-manager-agent/sing-box.json`，工作目录为 `/var/lib/sing-box-manager-agent`。Agent 自动从配置中定位已有证书或 ACME 缓存，也可通过参数覆盖路径。
 
 脚本默认安装最新稳定版 sing-box；使用已有核心时加 `--skip-sing-box`，指定版本时加 `--sing-box-version <版本号>`。接管已有部署时，会停止旧核心服务并取消其开机启动，保留原服务文件，部署失败时尝试恢复。更新 Agent 会重启其托管的核心。
 
@@ -66,44 +66,38 @@ curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/depl
 | --- | --- |
 | 名称 | 便于识别的服务器名称 |
 | URL | `https://node.example.com:9091`，域名须在 Agent 证书覆盖范围内 |
-| Token | `/etc/sing-box-manager/agent.json` 中的 `token` |
+| Token | `/etc/sing-box-manager-agent/config.json` 中的 `token` |
 
 测试连接并保存后，即可进入该服务器的概览、节点、配置和日志。首次读取配置会将远端文件导入为中心草稿。
 
 ## Docker 部署
 
-Panel 和 Agent 使用独立镜像，可分别部署：
+Panel 和 Agent 使用独立镜像，支持 `linux/amd64`、`linux/arm64`：
 
-| 组件 | 镜像 | Compose 配置 |
+| 组件 | 测试版镜像 | 默认启动命令 | 用途 |
+| --- | --- | --- | --- |
+| Panel | `ghcr.io/zahuiron/sing-box-manager-panel:0.0.0.2` | `sing-box-manager-panel` | 网页与管理 API |
+| Agent | `ghcr.io/zahuiron/sing-box-manager-agent:0.0.0.2` | `sing-box-manager-agent -env` | 管理同一容器内的 sing-box 核心 |
+
+镜像版本直接使用镜像标签选择。启动参数通过容器环境变量配置，默认值和用途见下方[配置参考](#配置参考)。Panel 默认使用 HTTP，监听 `0.0.0.0:18080`；Agent 默认使用 HTTPS，监听 `:9091`。修改端口使用 `PANEL_LISTEN` 或 `AGENT_LISTEN`。
+
+宿主机目录由部署时自行指定，挂载到以下容器内目录：
+
+| 组件 | 默认容器内目录 | 用途 |
 | --- | --- | --- |
-| Panel | `ghcr.io/zahuiron/sing-box-manager-panel` | [compose.panel.yaml](deploy/compose.panel.yaml) |
-| Agent | `ghcr.io/zahuiron/sing-box-manager-agent` | [compose.agent.yaml](deploy/compose.agent.yaml) |
+| Panel | `/var/lib/sing-box-manager-panel/` | 服务器列表、模板、订阅、配置草稿与发布快照、`master.key` 和自动生成的 `panel.key` |
+| Agent | `/etc/sing-box-manager-agent/` | 核心配置 `sing-box.json`，以及发布时生成的 `sing-box.json.bak` |
+| Agent | `/var/lib/sing-box-manager-agent/` | 核心工作目录，保存下载的 `bin/sing-box`、版本记录、自动生成的 `agent.key` 及核心运行数据 |
 
-在仓库目录执行以下命令。首次启动自动生成密钥并保存到数据卷，日志中输出 `generated access key: ...`；重启或重建容器沿用已有密钥。
+Agent 镜像的 `XDG_DATA_HOME` 默认指向 `/var/lib/sing-box-manager-agent`，ACME 证书、私钥及账户缓存位于其 `certmagic/` 子目录，随 Agent 数据一起持久化。
 
-### Panel
+Agent 启动前，须准备核心配置并挂载整个配置目录，以支持发布时的原子替换。自定义证书路径或 ACME 缓存路径时，须将相应文件挂载到容器内。Agent 默认下载最新稳定版核心，也可通过 `SING_BOX_VERSION` 指定版本；程序保存在数据目录中。按实际部署设置管理端口及核心业务端口的映射，或使用宿主机网络。
 
-```sh
-MANAGER_VERSION=0.0.0.1 docker compose -f deploy/compose.panel.yaml up -d
-docker compose -f deploy/compose.panel.yaml logs panel
-```
+未指定 `PANEL_SECRET` / `AGENT_TOKEN` 时，首次启动会自动生成访问密钥并写入各自的数据目录，仅生成时在容器日志输出 `generated access key: ...`。保留数据目录即可在重启、重建后复用；显式指定密钥时优先使用，不输出到日志。
 
-打开 `http://<面板地址>:18080`，使用日志中的密钥连接。
+打开 Panel 地址，使用 Panel 密钥连接；添加 Agent 时填写其 HTTPS 地址及 Agent Token。Panel 自己提供 HTTPS 时，须同时指定 `PANEL_TLS_CERT` 和 `PANEL_TLS_KEY`；通过反向代理提供 HTTPS 时，Panel 可继续使用 HTTP。
 
-### Agent
-
-将 sing-box 的 `config.json` 放入 `deploy/sing-box/`；已有 ACME 缓存放入 `deploy/data/certmagic/`。按入站需求补充 Compose 的业务端口映射，默认示例只映射 Agent 管理端口。
-
-```sh
-MANAGER_VERSION=0.0.0.1 docker compose -f deploy/compose.agent.yaml up -d
-docker compose -f deploy/compose.agent.yaml logs agent
-```
-
-在 Panel 中添加该 Agent，Token 填写日志中的密钥。首次启动会按需下载核心，请等待 Agent 就绪后连接。
-
-`SING_BOX_VERSION` 默认安装最新稳定版，也可指定版本；核心程序缓存在数据卷中。Agent 按容器内路径管理配置，无需 Docker socket。配置挂载整个目录，以支持保存时的原子替换。
-
-需要修改端口、目录或自定义密钥时，再使用 [.env.panel.example](deploy/.env.panel.example)、[.env.agent.example](deploy/.env.agent.example)；启动时在 `docker compose` 后增加 `--env-file <文件路径>`。`PANEL_SECRET` / `AGENT_TOKEN` 非空时优先使用，不输出到日志。
+已有 Docker 部署更新时，将原宿主机数据目录挂载到上述新容器内路径，保留原密钥文件。核心配置文件名不同时，通过 `SING_BOX_CONFIG` 指向实际文件。原生部署须先停用旧 Panel、Agent 服务，将原运行配置分别迁至 `/etc/sing-box-manager-panel/config.json`、`/etc/sing-box-manager-agent/config.json`，再运行新安装脚本；已有配置中的数据目录及核心路径会保留，迁移目录时同步修改对应字段。
 
 ## 使用指南
 
@@ -172,54 +166,81 @@ docker compose -f deploy/compose.agent.yaml logs agent
 <details>
 <summary>安装脚本参数</summary>
 
-| 参数 | 适用组件 | 说明 |
-| --- | --- | --- |
-| `--port` / `--listen` | Panel、Agent | 端口或完整监听地址，`--listen` 优先；默认 18080 / 9091 |
-| `--binary` / `--version` | Panel、Agent | 本地程序或本项目 Release 版本，默认 latest |
-| `--cert` / `--key` | Panel、Agent | TLS 证书与私钥，须成对设置；Agent 默认自动发现 |
-| `--secret` | Panel | 访问密钥；省略时保留已有值，首次安装自动生成 |
-| `--data-dir` | Panel | 数据目录，默认 `/var/lib/sing-box-manager` |
-| `--token` | Agent | 访问 Token；省略时保留已有值，首次安装自动生成 |
-| `--sing-box-version` | Agent | 核心版本，默认最新稳定版，支持带或不带 `v` |
-| `--skip-sing-box` | Agent | 使用已有核心，不安装或替换核心程序 |
-| `--sing-box-binary` / `--sing-box-config` | Agent | 核心程序与单文件配置路径 |
-| `--work-dir` / `--service` | Agent | 核心工作目录与待接管的旧核心服务名 |
-| `--auto-start true/false` | Agent | 是否随 Agent 启动核心；首次默认 true，迁移已停止的旧服务默认 false |
-| `--tls-domain` / `--acme-dir` | Agent | 选择证书域名或覆盖 CertMagic 缓存目录 |
+以下为首次安装且未提供覆盖时的默认值；重复安装时，运行配置中未显式覆盖的字段沿用已有值。`--listen` 优先于 `--port`。
 
-Panel 运行配置为 `/etc/sing-box-manager/panel.json`，Agent 配置为同目录的 `agent.json`。示例见 [panel.example.json](deploy/panel.example.json)、[agent.example.json](deploy/agent.example.json)。
+| 参数 | Panel 默认值 | Agent 默认值 | 用途 |
+| --- | --- | --- | --- |
+| `--port` | `18080` | `9091` | 管理端口 |
+| `--listen` | `0.0.0.0:18080` | `:9091` | 完整监听地址，可指定 IP 与端口 |
+| `--version` | `latest` | `latest` | 本项目 Release 标签；测试版须显式指定，如 `v0.0.0.2` |
+| `--binary` | 未指定 | 未指定 | 使用本地 Panel / Agent 程序；省略时按架构下载本项目 Release |
+| `--secret` | 自动生成 | — | Panel 访问密钥 |
+| `--token` | — | 自动生成 | Agent 访问 Token |
+| `--data-dir` | `/var/lib/sing-box-manager-panel` | — | Panel 业务数据目录 |
+| `--cert` / `--key` | 未设置，使用 HTTP | 从核心配置自动定位 | HTTPS 证书与私钥文件，显式指定时须成对设置 |
+| `--tls-domain` | — | 自动选择 | 选择 Agent 使用的 ACME 证书域名 |
+| `--acme-dir` | — | 自动定位，见 TLS 证书复用 | 覆盖 ACME 缓存根目录 |
+| `--sing-box-version` | — | `latest` | 要安装的核心版本；默认最新稳定版，支持带或不带 `v` |
+| `--skip-sing-box` | — | 不启用 | 跳过核心安装，使用已有核心 |
+| `--sing-box-binary` | — | 从 PATH 查找，找不到时安装至 `/var/lib/sing-box-manager-agent/bin/sing-box` | 核心程序位置 |
+| `--sing-box-config` | — | `/etc/sing-box-manager-agent/sing-box.json` | 需预先准备的核心单文件配置 |
+| `--work-dir` | — | `/var/lib/sing-box-manager-agent` | 核心工作目录 |
+| `--auto-start true/false` | — | `true` | 是否随 Agent 启动核心 |
+| `--service` | — | `sing-box` | 待接管的已有核心服务名 |
+| `--help` / `-h` | 不启用 | 不启用 | 显示脚本参数并退出 |
 
-Panel 支持参数、环境变量和配置文件，优先级依次降低；修改文件后重启生效。访问密钥为 1–1024 个可见 ASCII 字符，不含空格，可用 `sing-box-panel -generate-secret` 生成。
+首次接管已停止的旧核心服务时，未指定 `--auto-start` 则保持停止。
 
-Debian 系使用 `systemctl status sing-box-panel`、`systemctl status sing-box-agent`；Alpine 使用对应的 `rc-service sing-box-panel status`、`rc-service sing-box-agent status`。这些系统服务命令管理 Panel 或 Agent，核心启停在面板完成。
+脚本将 Panel、Agent 程序分别安装到 `/usr/local/bin/sing-box-manager-panel`、`/usr/local/bin/sing-box-manager-agent`，运行配置分别写入 `/etc/sing-box-manager-panel/config.json`、`/etc/sing-box-manager-agent/config.json`。脚本生成的访问密钥保存在对应运行配置中。
+
+Panel 支持参数、环境变量和配置文件，优先级依次降低；修改文件后重启生效。访问密钥为 1–1024 个可见 ASCII 字符，不含空格，可用 `sing-box-manager-panel -generate-secret` 生成。
+
+Debian 系使用 `systemctl status sing-box-manager-panel`、`systemctl status sing-box-manager-agent`；Alpine 使用对应的 `rc-service sing-box-manager-panel status`、`rc-service sing-box-manager-agent status`。这些系统服务命令管理 Panel 或 Agent，核心启停在面板完成。
 
 </details>
 
 <details>
-<summary>Docker 环境变量与目录</summary>
+<summary>镜像环境变量</summary>
 
-完整示例见 [.env.panel.example](deploy/.env.panel.example)、[.env.agent.example](deploy/.env.agent.example)。
+以下变量由容器中的程序读取；路径均指容器内部。宿主机路径通过容器挂载自行选择，修改数据、密钥或证书位置时须同步调整挂载。
 
-| 变量 | 用途 |
-| --- | --- |
-| `MANAGER_VERSION` | Panel / Agent 镜像版本，默认 latest |
-| `PANEL_PORT` / `AGENT_PORT` | 管理端口，默认 18080 / 9091 |
-| `PANEL_SECRET` / `AGENT_TOKEN` | 可选，留空时自动生成并保存；自定义 Agent Token 至少 32 个非空白字符 |
-| `PANEL_SECRET_FILE` / `AGENT_TOKEN_FILE` | 容器内密钥文件，默认 `/var/lib/sing-box-manager/panel.key` / `/var/lib/sing-box/agent.key` |
-| `PANEL_TLS_CERT` / `PANEL_TLS_KEY` | Panel HTTPS 证书与私钥路径 |
-| `AGENT_TLS_CERT` / `AGENT_TLS_KEY` | 覆盖 Agent 自动发现的证书与私钥路径 |
-| `AGENT_TLS_DOMAIN` / `AGENT_ACME_DIR` | 证书域名与 ACME 缓存根目录 |
-| `PANEL_DATA_DIR` | Compose 中 Panel 数据的宿主机挂载目录 |
-| `SING_BOX_CONFIG_DIR` / `SING_BOX_DATA_DIR` | Compose 中核心配置与数据的宿主机挂载目录 |
-| `SING_BOX_VERSION` | 核心版本，默认最新稳定版 |
-| `SING_BOX_AUTO_INSTALL` | 默认 true；自行挂载核心时可设 false |
-| `SING_BOX_BINARY` | 容器内核心程序，默认 `/var/lib/sing-box/bin/sing-box` |
-| `SING_BOX_CONFIG` | 容器内配置文件，默认 `/etc/sing-box/config.json` |
-| `SING_BOX_AUTO_START` | 默认 true；false 时只运行 Agent，需已有证书 |
+**Panel**
 
-Panel 容器数据目录为 `/var/lib/sing-box-manager`；Agent 将配置挂载到 `/etc/sing-box`、数据挂载到 `/var/lib/sing-box`。数据目录的 `certmagic/` 同时挂载到 `/root/.local/share/certmagic`，配置中的 `data_directory` 优先。
+| 变量 | 镜像默认值 | 用途 |
+| --- | --- | --- |
+| `PANEL_LISTEN` | `0.0.0.0:18080` | 完整监听地址，包含 IP 与端口 |
+| `PANEL_DATA_DIR` | `/var/lib/sing-box-manager-panel` | 面板业务数据目录 |
+| `PANEL_SECRET` | 未设置，首次自动生成 | 面板访问密钥；显式设置时优先使用 |
+| `PANEL_SECRET_FILE` | `/var/lib/sing-box-manager-panel/panel.key` | 未指定访问密钥时读取或生成的密钥文件 |
+| `PANEL_TLS_CERT` | 未设置 | Panel 自己提供 HTTPS 时使用的证书文件 |
+| `PANEL_TLS_KEY` | 未设置 | 对应的证书私钥文件；与 `PANEL_TLS_CERT` 成对设置 |
 
-自动生成的密钥仅首次输出；日志清理后可从上述密钥文件读取。保留数据卷即可在更新容器后继续使用原密钥。
+Panel 访问密钥须为 1–1024 个可见 ASCII 字符，不含空格。证书变量均未设置时使用 HTTP；证书续期后支持重载。
+
+**Agent**
+
+| 变量 | 镜像默认值 | 用途 |
+| --- | --- | --- |
+| `AGENT_LISTEN` | `:9091` | HTTPS 管理接口的完整监听地址，空主机部分表示监听全部地址 |
+| `AGENT_TOKEN` | 未设置，首次自动生成 | Agent 访问 Token，至少 32 个非空白字符；显式设置时优先使用 |
+| `AGENT_TOKEN_FILE` | `/var/lib/sing-box-manager-agent/agent.key` | 未指定 Token 时读取或生成的密钥文件 |
+| `AGENT_TLS_CERT` | 从核心配置自动定位 | 覆盖 Agent 使用的 HTTPS 证书文件 |
+| `AGENT_TLS_KEY` | 从核心配置自动定位 | 覆盖证书私钥文件；与 `AGENT_TLS_CERT` 成对设置 |
+| `AGENT_TLS_DOMAIN` | 自动选择 | 选择 ACME 证书域名 |
+| `AGENT_ACME_DIR` | 自动定位，见 TLS 证书复用 | 覆盖 ACME 缓存根目录 |
+| `AGENT_SERVICE` | `sing-box` | 核心服务标识；容器内仍由 Agent 直接管理核心进程 |
+| `SING_BOX_VERSION` | `latest` | 要安装的核心版本，默认最新稳定版 |
+| `SING_BOX_AUTO_INSTALL` | `true` | 启动时按需安装核心；使用自行提供的程序时可设为 `false` |
+| `SING_BOX_BINARY` | `/var/lib/sing-box-manager-agent/bin/sing-box` | 核心程序位置 |
+| `SING_BOX_CONFIG` | `/etc/sing-box-manager-agent/sing-box.json` | 需预先准备的核心单文件配置 |
+| `SING_BOX_WORK_DIR` | `/var/lib/sing-box-manager-agent` | 核心工作目录，核心配置中的相对路径以此为基准 |
+| `SING_BOX_AUTO_START` | `true` | 是否随 Agent 启动核心；`false` 时仅运行 Agent，须已有可加载的证书 |
+
+Docker 中的 Agent 默认从环境变量启动。脚本安装时，持久化的配置由安装脚本参数设置。自动生成的密钥只在生成时输出；日志清理后可从密钥文件读取，更新时须保留对应的数据目录。
+
+| 系统变量 | 镜像默认值 | 用途 |
+| --- | --- | --- |
+| `XDG_DATA_HOME` | `/var/lib/sing-box-manager-agent` | 核心与 Agent 共同使用的默认数据根目录；ACME 缓存位于其 `certmagic/` 子目录 |
 
 </details>
 
@@ -261,22 +282,22 @@ Panel 验证 Agent 的证书链、有效期和地址匹配；私有 CA 可在服
 npm --prefix web ci --ignore-scripts --no-audit --no-fund
 npm --prefix web run build
 mkdir -p .tools/build
-CGO_ENABLED=0 go build -buildvcs=false -trimpath -o .tools/build/sing-box-panel ./cmd/panel
-CGO_ENABLED=0 go build -buildvcs=false -trimpath -o .tools/build/sing-box-agent ./cmd/agent
+CGO_ENABLED=0 go build -buildvcs=false -trimpath -o .tools/build/sing-box-manager-panel ./cmd/sing-box-manager-panel
+CGO_ENABLED=0 go build -buildvcs=false -trimpath -o .tools/build/sing-box-manager-agent ./cmd/sing-box-manager-agent
 ```
 
 以 root 通过本地程序安装：
 
 ```sh
-sh deploy/install-panel.sh --binary "$PWD/.tools/build/sing-box-panel" --port 18080
-sh deploy/install-agent.sh --binary "$PWD/.tools/build/sing-box-agent" --skip-sing-box --port 9091
+sh deploy/install-sing-box-manager-panel.sh --binary "$PWD/.tools/build/sing-box-manager-panel" --port 18080
+sh deploy/install-sing-box-manager-agent.sh --binary "$PWD/.tools/build/sing-box-manager-agent" --skip-sing-box --port 9091
 ```
 
 Agent 仍需先准备 sing-box 配置和证书；需要由脚本安装核心时去掉 `--skip-sing-box`。构建 Docker 镜像使用对应文件：
 
 ```sh
-docker build -f Dockerfile.panel -t sing-box-manager-panel .
-docker build -f Dockerfile.agent -t sing-box-manager-agent .
+docker build -f Dockerfile.sing-box-manager-panel -t sing-box-manager-panel .
+docker build -f Dockerfile.sing-box-manager-agent -t sing-box-manager-agent .
 ```
 
 <details>
@@ -284,17 +305,15 @@ docker build -f Dockerfile.agent -t sing-box-manager-agent .
 
 | 项目 | Panel | Agent |
 | --- | --- | --- |
-| 启动入口 | `cmd/panel/main.go` | `cmd/agent/main.go` |
+| 启动入口 | `cmd/sing-box-manager-panel/main.go` | `cmd/sing-box-manager-agent/main.go` |
 | 业务实现 | `internal/panel/` | `internal/agent/` |
-| 程序与系统服务 | `sing-box-panel` | `sing-box-agent` |
-| Docker 构建文件 | `Dockerfile.panel` | `Dockerfile.agent` |
-| 安装脚本 | `deploy/install-panel.sh` | `deploy/install-agent.sh` |
-| Compose 配置 | `deploy/compose.panel.yaml` | `deploy/compose.agent.yaml` |
-| 环境变量示例 | `deploy/.env.panel.example` | `deploy/.env.agent.example` |
+| 程序与系统服务 | `sing-box-manager-panel` | `sing-box-manager-agent` |
+| Docker 构建文件 | `Dockerfile.sing-box-manager-panel` | `Dockerfile.sing-box-manager-agent` |
+| 安装脚本 | `deploy/install-sing-box-manager-panel.sh` | `deploy/install-sing-box-manager-agent.sh` |
 
 `web/` 为网页，构建后嵌入 Panel；`internal/coreinstall/` 提供核心下载安装。模板字段定义内置于 `web/src/schema/sing-box.schema.json`，由对应版本的 `sing-box schema` 输出更新，网页按需加载。
 
-工作流按版本标签或手动指定的已有标签发布四个 Linux 程序包：Panel、Agent 各 amd64 / arm64。程序包附带许可证、第三方声明和源码地址；两个多架构镜像发布到 GHCR，稳定版更新 latest 标签。镜像内许可证位于 `/usr/share/licenses/sing-box-manager/`，Panel 的“设置 → 许可证”可查看声明。
+工作流按版本标签或手动指定的已有标签发布四个 Linux 程序包：`sing-box-manager-panel-linux-amd64.tar.gz`、`sing-box-manager-panel-linux-arm64.tar.gz`、`sing-box-manager-agent-linux-amd64.tar.gz`、`sing-box-manager-agent-linux-arm64.tar.gz`。程序包附带许可证、第三方声明和源码地址；两个多架构镜像发布到 GHCR，稳定版更新 latest 标签。镜像内许可证分别位于 `/usr/share/licenses/sing-box-manager-panel/`、`/usr/share/licenses/sing-box-manager-agent/`，Panel 的“设置 → 许可证”可查看声明。
 
 版本使用 `主版本.次版本.修订版本.测试版本`，Git 标签加 `v` 前缀。第四位大于 0 为测试版，归零为正式版；测试更新第四位加 1，小更新第三位加 1，中更新第二位加 1，大更新第一位加 1，增加某位时将其后各位归零。测试版标为 Prerelease，不更新 Docker 的 `latest`。
 
@@ -304,7 +323,6 @@ docker build -f Dockerfile.agent -t sing-box-manager-agent .
 
 - [sing-box](https://github.com/SagerNet/sing-box)：代理核心。
 - [sing-box-dashboard](https://github.com/SagerNet/sing-box-dashboard)：通用 UI 源码和样式。
-- S-Panel：复用 Schema 解析与校验代码，参考并改写配置检查和字段编辑。
 
 采用 [GPL-3.0-or-later](LICENSE)。第三方来源与许可见[第三方说明](web/THIRD_PARTY.md)。
 

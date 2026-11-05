@@ -129,7 +129,7 @@ func prepareConfig(cfg Config, path string) (Config, error) {
 	}
 	binary, err := exec.LookPath(cfg.Service.Binary)
 	if err != nil && cfg.Service.Binary == "sing-box" {
-		binary, err = exec.LookPath("/usr/local/bin/sing-box")
+		binary, err = exec.LookPath("/var/lib/sing-box-manager-agent/bin/sing-box")
 	}
 	if err != nil {
 		return cfg, fmt.Errorf("find sing-box binary: %w", err)

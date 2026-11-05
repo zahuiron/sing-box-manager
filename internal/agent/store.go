@@ -55,7 +55,7 @@ func validateConfig(ctx context.Context, cfg ServiceConfig, service Service, con
 	if len(content) > MaxConfigBytes {
 		return problem(413, "config_too_large", "configuration exceeds 2 MiB")
 	}
-	f, err := os.CreateTemp(filepath.Dir(cfg.Config), ".sbm-check-*")
+	f, err := os.CreateTemp(filepath.Dir(cfg.Config), ".sing-box-manager-agent-check-*")
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func validateConfig(ctx context.Context, cfg ServiceConfig, service Service, con
 }
 
 func writeAtomic(path string, data []byte, info os.FileInfo) error {
-	f, err := os.CreateTemp(filepath.Dir(path), ".sbm-write-*")
+	f, err := os.CreateTemp(filepath.Dir(path), ".sing-box-manager-agent-write-*")
 	if err != nil {
 		return err
 	}

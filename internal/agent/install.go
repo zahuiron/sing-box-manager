@@ -60,7 +60,7 @@ func InstallSingBox(basePath, version string) error {
 	if binary == "" || binary == "sing-box" {
 		binary, err = exec.LookPath("sing-box")
 		if err != nil {
-			binary = "/usr/local/bin/sing-box"
+			binary = "/var/lib/sing-box-manager-agent/bin/sing-box"
 		}
 	}
 	binary, err = filepath.Abs(binary)

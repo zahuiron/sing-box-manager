@@ -42,7 +42,7 @@ func (s *Server) exportBackup(w http.ResponseWriter, r *http.Request) {
 	content = append(content, '\n')
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
-	w.Header().Set("Content-Disposition", `attachment; filename="sing-box-manager-backup-`+data.CreatedAt.Format("20060102T150405Z")+`.json"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="sing-box-manager-panel-backup-`+data.CreatedAt.Format("20060102T150405Z")+`.json"`)
 	_, _ = w.Write(content)
 }
 

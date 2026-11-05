@@ -1,4 +1,3 @@
-// From S-Panel (GPL-3.0-or-later); modified 2026-11-05. See web/THIRD_PARTY.md.
 // JSON Schema Draft 2020-12 adapter for core and bundled template schemas.
 export function resolve(schema, root, seen = new Set()) {
   if (!schema || typeof schema !== "object") return {};

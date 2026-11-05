@@ -1,4 +1,4 @@
-/* Portions from sing-box-dashboard@3e4bf08 (GPL-3.0-or-later); modified 2026-11-05. See web/THIRD_PARTY.md. */
+/* Portions from sing-box-dashboard@3e4bf08 (GPL-3.0-or-later); modified 2026-11-05, 2026-11-06. See web/THIRD_PARTY.md. */
 .text-large-title,
 .page-title {
   font-family: var(--font-serif);
@@ -1150,13 +1150,13 @@ button.settings-row:focus-visible {
   text-align: center;
 }
 
-.empty-state .icon {
+.empty-state > .icon {
   display: block;
   margin: 0 auto var(--space-10);
   color: var(--border-strong);
 }
 
-.empty-state .spinner {
+.empty-state > .spinner {
   margin: 0 auto;
 }
 

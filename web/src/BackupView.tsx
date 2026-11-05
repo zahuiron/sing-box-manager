@@ -49,7 +49,7 @@ export default function BackupView({
       const filename =
         /filename="([^"]+)"/.exec(
           response.headers.get("Content-Disposition") || "",
-        )?.[1] || "sing-box-manager-backup.json";
+        )?.[1] || "sing-box-manager-panel-backup.json";
       downloadBlob(await response.blob(), filename);
     });
     setAction("");

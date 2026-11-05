@@ -57,9 +57,9 @@ jobs:
             for component in panel agent; do
               GOARCH="$arch" go build -buildvcs=false -trimpath \
                 -ldflags="-s -w -X main.version=$VERSION" \
-                -o "$RUNNER_TEMP/package/sing-box-$component" "./cmd/$component"
+                -o "$RUNNER_TEMP/package/sing-box-manager-$component" "./cmd/sing-box-manager-$component"
               tar -C "$RUNNER_TEMP/package" -czf \
-                "$RUNNER_TEMP/release/sing-box-$component-linux-$arch.tar.gz" "sing-box-$component" LICENSE NOTICE SOURCE licenses
+                "$RUNNER_TEMP/release/sing-box-manager-$component-linux-$arch.tar.gz" "sing-box-manager-$component" LICENSE NOTICE SOURCE licenses
             done
           done
       - name: Publish release
@@ -83,9 +83,9 @@ jobs:
       matrix:
         include:
           - component: agent
-            file: Dockerfile.agent
+            file: Dockerfile.sing-box-manager-agent
           - component: panel
-            file: Dockerfile.panel
+            file: Dockerfile.sing-box-manager-panel
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

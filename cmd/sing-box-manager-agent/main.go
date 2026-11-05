@@ -20,9 +20,9 @@ import (
 var version = "dev"
 
 func main() {
-	flag.CommandLine = flag.NewFlagSet("sing-box-agent", flag.ExitOnError)
-	log.SetPrefix("sing-box-agent: ")
-	path := flag.String("config", "agent.json", "agent JSON configuration")
+	flag.CommandLine = flag.NewFlagSet("sing-box-manager-agent", flag.ExitOnError)
+	log.SetPrefix("sing-box-manager-agent: ")
+	path := flag.String("config", "/etc/sing-box-manager-agent/config.json", "agent JSON configuration")
 	fromEnv := flag.Bool("env", false, "read configuration from environment variables")
 	writeConfig := flag.String("write-config", "", "write validated environment settings to a JSON configuration and exit")
 	generate := flag.Bool("generate-token", false, "generate a node token and exit")
@@ -32,7 +32,7 @@ func main() {
 	coreVersion := flag.String("sing-box-version", "latest", "sing-box release to install (default: latest stable)")
 	flag.Parse()
 	if *showVersion {
-		fmt.Printf("sing-box-agent %s\n", version)
+		fmt.Printf("sing-box-manager-agent %s\n", version)
 		return
 	}
 	if *serviceInfo {

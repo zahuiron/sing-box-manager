@@ -6,7 +6,7 @@ import (
 )
 
 func detectEnvironment() string {
-	if os.Getenv("SING_BOX_MANAGER_ENVIRONMENT") == "docker" {
+	if os.Getenv("SING_BOX_MANAGER_AGENT_ENVIRONMENT") == "docker" {
 		return "docker"
 	}
 	data, err := os.ReadFile("/etc/os-release")

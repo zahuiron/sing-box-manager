@@ -1,4 +1,4 @@
-// Portions from sing-box-dashboard@3e4bf08 (GPL-3.0-or-later); modified 2026-11-05. See web/THIRD_PARTY.md.
+// Portions from sing-box-dashboard@3e4bf08 (GPL-3.0-or-later); modified 2026-11-05, 2026-11-06. See web/THIRD_PARTY.md.
 import { useEffect, useRef, useState } from "react";
 import {
   agent,
@@ -1037,7 +1037,7 @@ export default function Management({
           label={t("打开菜单", "Open menu")}
           onClick={() => setNavOpen(true)}
         />
-        <span className={shell["mobile-topbar-brand"]}>sing-box manager</span>
+        <span className={shell["mobile-topbar-brand"]}>sing-box-manager</span>
       </div>
       {navOpen && mobile && (
         <button
@@ -1071,7 +1071,7 @@ export default function Management({
         }}
       >
         <div className={shell["sidebar-brand"]}>
-          <span>sing-box manager</span>
+          <span>sing-box-manager</span>
           <small className={shell["sidebar-brand-version"]}>
             {session.version}
           </small>

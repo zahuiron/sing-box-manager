@@ -1,4 +1,4 @@
-sing-box manager
+sing-box-manager
 
 This program is released under GPL-3.0-or-later, without any warranty.
 You may redistribute and modify it under that license. See LICENSE.
@@ -9,12 +9,7 @@ https://github.com/SagerNet/sing-box-dashboard/tree/3e4bf08e5bf5b9417cf9c36e5a2d
 Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
 GPL-3.0-or-later; the original additional notice is retained in
 web/src/vendor/LICENSE and licenses/sing-box-dashboard.txt in Panel builds.
-Modified 2026-11-05: adapted UI controls, styles, state and translations.
-
-Panel Schema and configuration editor portions: S-Panel
-Original files: web/lib/schema.mjs, web/lib/validation.mjs, web/editor.mjs.
-GPL-3.0-or-later; see web/src/schema/LICENSE.
-Modified 2026-11-05: formatting, version messages and React/TypeScript integration.
+Modified 2026-11-05, 2026-11-06: adapted UI controls, styles, state, translations and branding.
 
 Panel bundled configuration Schema: sing-box
 https://github.com/SagerNet/sing-box
