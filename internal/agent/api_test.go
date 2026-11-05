@@ -71,12 +71,12 @@ func (s *stubService) Logs(ctx context.Context, opts LogOptions, write func([]by
 func testAPI(t *testing.T, state string) (*API, *stubService) {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
+	path := filepath.Join(dir, "profile.json")
 	if err := os.WriteFile(path, []byte("{\n  \"old\": true\n}\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	service := &stubService{state: state}
-	cfg := Config{Token: testToken, Service: ServiceConfig{Config: path, WorkDir: dir, Driver: "process"}}
+	cfg := Config{Token: testToken, Service: ServiceConfig{Config: dir, WorkDir: dir, Driver: "process"}}
 	return NewAPI(cfg, service, "test"), service
 }
 
@@ -156,7 +156,7 @@ func TestConfigPreconditionsAndValidation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, service := testAPI(t, "running")
-			before, _ := os.ReadFile(a.cfg.Service.Config)
+			before, _ := os.ReadFile(filepath.Join(a.cfg.Service.Config, "profile.json"))
 			etag := tc.etag
 			if etag == "current" {
 				etag = configETag(before)
@@ -166,7 +166,7 @@ func TestConfigPreconditionsAndValidation(t *testing.T) {
 			}
 			w := request(t, a, "PUT", "/v1/config", configRequest{Content: `{"new":true}`, Apply: true}, etag)
 			requireStatus(t, w, tc.want)
-			requireFile(t, a.cfg.Service.Config, string(before))
+			requireFile(t, filepath.Join(a.cfg.Service.Config, "profile.json"), string(before))
 			if len(service.actions) != 0 {
 				t.Fatal("failed validation changed service state")
 			}
@@ -178,12 +178,12 @@ func TestSavePreservesContentAndDoesNotStartStoppedService(t *testing.T) {
 	for _, apply := range []bool{false, true} {
 		t.Run(map[bool]string{false: "save only", true: "apply stopped service"}[apply], func(t *testing.T) {
 			a, service := testAPI(t, "stopped")
-			previous, _ := os.ReadFile(a.cfg.Service.Config)
+			previous, _ := os.ReadFile(filepath.Join(a.cfg.Service.Config, "profile.json"))
 			candidate := "{\n  \"unknown_field\": [1, 2]\n}\n"
 			w := request(t, a, "PUT", "/v1/config", configRequest{Content: candidate, Apply: apply}, configETag(previous))
 			requireStatus(t, w, 200)
-			requireFile(t, a.cfg.Service.Config, candidate)
-			requireFile(t, a.cfg.Service.Config+".bak", string(previous))
+			requireFile(t, filepath.Join(a.cfg.Service.Config, "profile.json"), candidate)
+			requireFile(t, filepath.Join(a.cfg.Service.Config, "profile.json")+".bak", string(previous))
 			if len(service.actions) != 0 || strings.Contains(w.Body.String(), `"applied":true`) {
 				t.Fatal("saving configuration started a stopped service")
 			}
@@ -200,7 +200,7 @@ func TestApplyFailureRestoresPreviousConfigAndReportsRecovery(t *testing.T) {
 	for _, recoveryFails := range []bool{false, true} {
 		t.Run(map[bool]string{false: "recovered", true: "recovery failed"}[recoveryFails], func(t *testing.T) {
 			a, service := testAPI(t, "running")
-			previous, _ := os.ReadFile(a.cfg.Service.Config)
+			previous, _ := os.ReadFile(filepath.Join(a.cfg.Service.Config, "profile.json"))
 			service.onAction = func(_ string, attempt int) error {
 				if attempt == 1 || recoveryFails {
 					return errors.New("failed to start")
@@ -209,7 +209,7 @@ func TestApplyFailureRestoresPreviousConfigAndReportsRecovery(t *testing.T) {
 			}
 			w := request(t, a, "PUT", "/v1/config", configRequest{Content: `{"new":true}`, Apply: true}, configETag(previous))
 			requireStatus(t, w, 502)
-			requireFile(t, a.cfg.Service.Config, string(previous))
+			requireFile(t, filepath.Join(a.cfg.Service.Config, "profile.json"), string(previous))
 			if len(service.actions) != 2 {
 				t.Fatalf("expected apply and recovery, got %v", service.actions)
 			}
@@ -226,13 +226,13 @@ func TestApplyFailureRestoresPreviousConfigAndReportsRecovery(t *testing.T) {
 
 func TestExternalEditDuringValidationIsNotOverwritten(t *testing.T) {
 	a, service := testAPI(t, "running")
-	previous, _ := os.ReadFile(a.cfg.Service.Config)
+	previous, _ := os.ReadFile(filepath.Join(a.cfg.Service.Config, "profile.json"))
 	service.onCheck = func(string) error {
-		return os.WriteFile(a.cfg.Service.Config, []byte(`{"external":true}`), 0o600)
+		return os.WriteFile(filepath.Join(a.cfg.Service.Config, "profile.json"), []byte(`{"external":true}`), 0o600)
 	}
 	w := request(t, a, "PUT", "/v1/config", configRequest{Content: `{"new":true}`}, configETag(previous))
 	requireStatus(t, w, 412)
-	requireFile(t, a.cfg.Service.Config, `{"external":true}`)
+	requireFile(t, filepath.Join(a.cfg.Service.Config, "profile.json"), `{"external":true}`)
 }
 
 func TestConcurrentMutationReturnsBusy(t *testing.T) {

@@ -17,7 +17,7 @@ Usage: sh install-sing-box-manager-agent.sh [options]
   --sing-box-version VERSION  sing-box version (default: latest stable)
   --skip-sing-box           Use the existing sing-box binary
   --sing-box-binary PATH    Existing sing-box executable
-  --sing-box-config PATH    Existing single configuration file
+  --sing-box-config DIR     Existing sing-box configuration directory
   --work-dir PATH           Existing sing-box working directory
   --auto-start BOOL         Start the managed core with Agent (default: true)
   --service NAME            Existing sing-box service name

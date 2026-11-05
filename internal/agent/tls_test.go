@@ -92,8 +92,15 @@ func TestLoadConfigResolvesPathsAndRejectsUnsafeInputs(t *testing.T) {
 	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "agent.json")
+	coreDir := filepath.Join(dir, "core")
+	if err := os.Mkdir(coreDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(coreDir, "profile.json"), []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	cfg := Config{Token: testToken, TLS: TLSConfig{Cert: "cert.pem", Key: "key.pem"},
-		Service: ServiceConfig{Driver: "openrc", Name: "sing-box", Binary: binary, Config: "config.json"}}
+		Service: ServiceConfig{Driver: "openrc", Name: "sing-box", Binary: binary, Config: "core", WorkDir: "."}}
 	write := func(value Config) {
 		data, _ := json.Marshal(value)
 		if err := os.WriteFile(path, data, 0o600); err != nil {
@@ -102,7 +109,7 @@ func TestLoadConfigResolvesPathsAndRejectsUnsafeInputs(t *testing.T) {
 	}
 	write(cfg)
 	loaded, err := LoadConfig(path)
-	if err != nil || loaded.Service.Config != filepath.Join(dir, "config.json") || loaded.Service.WorkDir != dir {
+	if err != nil || loaded.Service.Config != coreDir || loaded.Service.WorkDir != dir {
 		t.Fatalf("loaded %+v, error %v", loaded.Service, err)
 	}
 	for _, change := range []func(*Config){

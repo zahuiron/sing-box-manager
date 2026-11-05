@@ -39,7 +39,7 @@ func InstallSingBox(basePath, version string) error {
 	cfg.Service.WorkDir = resolve(cfg.Service.WorkDir)
 	cfg.TLS.Cert, cfg.TLS.Key = resolve(cfg.TLS.Cert), resolve(cfg.TLS.Key)
 	if cfg.Service.WorkDir == "" {
-		cfg.Service.WorkDir = filepath.Dir(cfg.Service.Config)
+		cfg.Service.WorkDir = "/var/lib/sing-box"
 	}
 	if cfg.Service.Name == "" {
 		cfg.Service.Name = "sing-box"
@@ -50,8 +50,9 @@ func InstallSingBox(basePath, version string) error {
 	if !serviceNamePattern.MatchString(cfg.Service.Name) {
 		return fmt.Errorf("invalid sing-box service name")
 	}
-	if _, err := os.Stat(cfg.Service.Config); err != nil {
-		return fmt.Errorf("prepare an existing sing-box configuration at %s: %w", cfg.Service.Config, err)
+	cfg.Service.Config, err = configurationDirectory(cfg.Service.Config)
+	if err != nil {
+		return fmt.Errorf("prepare a sing-box directory containing one .json configuration: %w", err)
 	}
 	if err := os.MkdirAll(cfg.Service.WorkDir, 0755); err != nil {
 		return err
@@ -60,7 +61,7 @@ func InstallSingBox(basePath, version string) error {
 	if binary == "" || binary == "sing-box" {
 		binary, err = exec.LookPath("sing-box")
 		if err != nil {
-			binary = "/var/lib/sing-box-manager-agent/bin/sing-box"
+			binary = "/usr/local/bin/sing-box"
 		}
 	}
 	binary, err = filepath.Abs(binary)

@@ -117,9 +117,13 @@ func prepareConfig(cfg Config, path string) (Config, error) {
 	}
 	cfg.TLS.Cert, cfg.TLS.Key = resolve(cfg.TLS.Cert), resolve(cfg.TLS.Key)
 	cfg.Service.Config = resolve(cfg.Service.Config)
+	cfg.Service.Config, err = configurationDirectory(cfg.Service.Config)
+	if err != nil {
+		return cfg, fmt.Errorf("read sing-box configuration directory: %w", err)
+	}
 	cfg.Service.WorkDir = resolve(cfg.Service.WorkDir)
 	if cfg.Service.WorkDir == "" {
-		cfg.Service.WorkDir = filepath.Dir(cfg.Service.Config)
+		cfg.Service.WorkDir = "/var/lib/sing-box"
 	}
 	if cfg.Service.Binary == "" {
 		cfg.Service.Binary = "sing-box"
@@ -129,7 +133,7 @@ func prepareConfig(cfg Config, path string) (Config, error) {
 	}
 	binary, err := exec.LookPath(cfg.Service.Binary)
 	if err != nil && cfg.Service.Binary == "sing-box" {
-		binary, err = exec.LookPath("/var/lib/sing-box-manager-agent/bin/sing-box")
+		binary, err = exec.LookPath("/usr/local/bin/sing-box")
 	}
 	if err != nil {
 		return cfg, fmt.Errorf("find sing-box binary: %w", err)

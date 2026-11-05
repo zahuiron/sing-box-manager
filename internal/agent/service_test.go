@@ -32,8 +32,8 @@ func testCore(args []string) int {
 	}
 	var path string
 	for i := 1; i+1 < len(args); i++ {
-		if args[i] == "-c" {
-			path = args[i+1]
+		if args[i] == "-C" {
+			path, _ = configurationFile(args[i+1])
 		}
 	}
 	data, err := os.ReadFile(path)
@@ -69,11 +69,11 @@ func fixtureService(t *testing.T) (ServiceConfig, Service) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
+	path := filepath.Join(dir, "profile.json")
 	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := ServiceConfig{Driver: "process", Binary: binary, Config: path, WorkDir: dir, Name: "sing-box"}
+	cfg := ServiceConfig{Driver: "process", Binary: binary, Config: dir, WorkDir: dir, Name: "sing-box"}
 	service := NewService(cfg)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -128,7 +128,7 @@ func TestRealProcessApplyFailureRecovers(t *testing.T) {
 	if !errors.As(err, &failure) || failure.Code != "apply_failed" || !result.RolledBack {
 		t.Fatalf("result %+v, error %v", result, err)
 	}
-	requireFile(t, cfg.Config, `{}`)
+	requireFile(t, filepath.Join(cfg.Config, "profile.json"), `{}`)
 	if state, _ := service.Status(ctx); state != "running" {
 		t.Fatal(state)
 	}

@@ -30,7 +30,7 @@ Go 后端使用标准库，前端构建后嵌入 Panel 程序，无需额外数�
 
 ## 快速开始
 
-下列命令使用测试版 `0.0.0.2`。脚本的 `--version` 使用 `v0.0.0.2`，镜像标签使用 `0.0.0.2`；测试版不更新 `latest`。
+下列命令使用测试版 `0.0.0.3`。脚本的 `--version` 使用 `v0.0.0.3`，镜像标签使用 `0.0.0.3`；测试版不更新 `latest`。
 
 以下命令以 root 执行。Panel 所在机器需能访问各 Agent 的管理端口。
 
@@ -39,7 +39,7 @@ Go 后端使用标准库，前端构建后嵌入 Panel 程序，无需额外数�
 在管理面板所在机器执行：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-sing-box-manager-panel.sh | sh -s -- --version v0.0.0.2 --port 18080
+curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-sing-box-manager-panel.sh | sh -s -- --version v0.0.0.3 --port 18080
 ```
 
 安装后打开 `http://<面板地址>:18080`，填写面板 URL 和密钥，名称可留空。首次安装自动生成密钥，保存在 `/etc/sing-box-manager-panel/config.json` 的 `secret`；重复部署保留已有密钥。也可通过 `--secret` 指定。
@@ -48,15 +48,17 @@ curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/depl
 
 ### 2. 安装 Agent
 
-在每台运行 sing-box 的服务器上，先准备单文件配置与已签发的 TLS 证书，再执行：
+在每台运行 sing-box 的服务器上，先在配置目录中准备一份 `.json` 配置与已签发的 TLS 证书，再执行：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-sing-box-manager-agent.sh | sh -s -- --version v0.0.0.2 --port 9091
+curl -fsSL https://raw.githubusercontent.com/zahuiron/sing-box-manager/main/deploy/install-sing-box-manager-agent.sh | sh -s -- --version v0.0.0.3 --port 9091
 ```
 
-默认配置路径为 `/etc/sing-box-manager-agent/sing-box.json`，工作目录为 `/var/lib/sing-box-manager-agent`。Agent 自动从配置中定位已有证书或 ACME 缓存，也可通过参数覆盖路径。
+默认配置目录为 `/etc/sing-box`，工作目录为 `/var/lib/sing-box`。目录内放一份 `.json` 配置，文件名任意；Agent 自动识别并保留原名，核心启动和校验均使用 `-C` 加载目录。Agent 自动从配置中定位已有证书或 ACME 缓存，也可通过参数覆盖路径。
 
 脚本默认安装最新稳定版 sing-box；使用已有核心时加 `--skip-sing-box`，指定版本时加 `--sing-box-version <版本号>`。接管已有部署时，会停止旧核心服务并取消其开机启动，保留原服务文件，部署失败时尝试恢复。更新 Agent 会重启其托管的核心。
+
+自动安装优先使用官方 musl 静态包，供 Debian、Alpine 和 Docker 共用；旧版本没有 musl 包时，仅回退到静态的默认 Linux 包。
 
 ### 3. 接入服务器
 
@@ -76,8 +78,8 @@ Panel 和 Agent 使用独立镜像，支持 `linux/amd64`、`linux/arm64`：
 
 | 组件 | 测试版镜像 | 默认启动命令 | 用途 |
 | --- | --- | --- | --- |
-| Panel | `ghcr.io/zahuiron/sing-box-manager-panel:0.0.0.2` | `sing-box-manager-panel` | 网页与管理 API |
-| Agent | `ghcr.io/zahuiron/sing-box-manager-agent:0.0.0.2` | `sing-box-manager-agent -env` | 管理同一容器内的 sing-box 核心 |
+| Panel | `ghcr.io/zahuiron/sing-box-manager-panel:0.0.0.3` | `sing-box-manager-panel` | 网页与管理 API |
+| Agent | `ghcr.io/zahuiron/sing-box-manager-agent:0.0.0.3` | `sing-box-manager-agent -env` | 管理同一容器内的 sing-box 核心 |
 
 镜像版本直接使用镜像标签选择。启动参数通过容器环境变量配置，默认值和用途见下方[配置参考](#配置参考)。Panel 默认使用 HTTP，监听 `0.0.0.0:18080`；Agent 默认使用 HTTPS，监听 `:9091`。修改端口使用 `PANEL_LISTEN` 或 `AGENT_LISTEN`。
 
@@ -86,18 +88,20 @@ Panel 和 Agent 使用独立镜像，支持 `linux/amd64`、`linux/arm64`：
 | 组件 | 默认容器内目录 | 用途 |
 | --- | --- | --- |
 | Panel | `/var/lib/sing-box-manager-panel/` | 服务器列表、模板、订阅、配置草稿与发布快照、`master.key` 和自动生成的 `panel.key` |
-| Agent | `/etc/sing-box-manager-agent/` | 核心配置 `sing-box.json`，以及发布时生成的 `sing-box.json.bak` |
-| Agent | `/var/lib/sing-box-manager-agent/` | 核心工作目录，保存下载的 `bin/sing-box`、版本记录、自动生成的 `agent.key` 及核心运行数据 |
+| Agent 自身 | `/var/lib/sing-box-manager-agent/` | Agent 自动生成的访问密钥 `agent.key` |
+| sing-box 核心 | `/etc/sing-box/` | 唯一的 `.json` 配置文件，以及发布时生成的 `<原文件名>.bak` |
+| sing-box 核心 | `/var/lib/sing-box/` | 核心工作目录，保存下载的 `bin/sing-box`、版本记录及核心运行数据 |
+| sing-box ACME | `/root/.local/share/certmagic/` | 默认的证书、私钥和 ACME 账户缓存，使用默认路径时须一起持久化 |
 
-Agent 镜像的 `XDG_DATA_HOME` 默认指向 `/var/lib/sing-box-manager-agent`，ACME 证书、私钥及账户缓存位于其 `certmagic/` 子目录，随 Agent 数据一起持久化。
+ACME 缓存优先使用核心配置中的 `data_directory`；设置 `XDG_DATA_HOME` 时默认位于其 `certmagic/` 子目录，否则使用上表中的默认目录。自定义缓存路径时，持久化对应目录。
 
-Agent 启动前，须准备核心配置并挂载整个配置目录，以支持发布时的原子替换。自定义证书路径或 ACME 缓存路径时，须将相应文件挂载到容器内。Agent 默认下载最新稳定版核心，也可通过 `SING_BOX_VERSION` 指定版本；程序保存在数据目录中。按实际部署设置管理端口及核心业务端口的映射，或使用宿主机网络。
+Agent 启动前，须准备核心配置并挂载整个配置目录，以支持发布时的原子替换；文件名保留 `.json` 后缀，目录内仅放一份配置。自定义证书路径或 ACME 缓存路径时，须将相应文件挂载到容器内。Agent 默认下载最新稳定版核心，也可通过 `SING_BOX_VERSION` 指定版本；程序保存在核心数据目录中。按实际部署设置管理端口及核心业务端口的映射，或使用宿主机网络。
 
 未指定 `PANEL_SECRET` / `AGENT_TOKEN` 时，首次启动会自动生成访问密钥并写入各自的数据目录，仅生成时在容器日志输出 `generated access key: ...`。保留数据目录即可在重启、重建后复用；显式指定密钥时优先使用，不输出到日志。
 
 打开 Panel 地址，使用 Panel 密钥连接；添加 Agent 时填写其 HTTPS 地址及 Agent Token。Panel 自己提供 HTTPS 时，须同时指定 `PANEL_TLS_CERT` 和 `PANEL_TLS_KEY`；通过反向代理提供 HTTPS 时，Panel 可继续使用 HTTP。
 
-已有 Docker 部署更新时，将原宿主机数据目录挂载到上述新容器内路径，保留原密钥文件。核心配置文件名不同时，通过 `SING_BOX_CONFIG` 指向实际文件。原生部署须先停用旧 Panel、Agent 服务，将原运行配置分别迁至 `/etc/sing-box-manager-panel/config.json`、`/etc/sing-box-manager-agent/config.json`，再运行新安装脚本；已有配置中的数据目录及核心路径会保留，迁移目录时同步修改对应字段。
+已有 Docker 部署更新时，将原宿主机数据目录挂载到上述容器内路径，保留原密钥及 ACME 缓存。`SING_BOX_CONFIG` 指向配置所在目录，文件无需改名。原生部署须先停用旧 Panel、Agent 服务，将管理组件的运行配置分别迁至 `/etc/sing-box-manager-panel/config.json`、`/etc/sing-box-manager-agent/config.json`，再运行新安装脚本；已有核心文件路径会转换为所在目录，显式工作目录继续保留。核心配置目录仅放一份 `.json` 配置，Agent 的运行配置单独存放。
 
 ## 使用指南
 
@@ -172,7 +176,7 @@ Agent 启动前，须准备核心配置并挂载整个配置目录，以支持�
 | --- | --- | --- | --- |
 | `--port` | `18080` | `9091` | 管理端口 |
 | `--listen` | `0.0.0.0:18080` | `:9091` | 完整监听地址，可指定 IP 与端口 |
-| `--version` | `latest` | `latest` | 本项目 Release 标签；测试版须显式指定，如 `v0.0.0.2` |
+| `--version` | `latest` | `latest` | 本项目 Release 标签；测试版须显式指定，如 `v0.0.0.3` |
 | `--binary` | 未指定 | 未指定 | 使用本地 Panel / Agent 程序；省略时按架构下载本项目 Release |
 | `--secret` | 自动生成 | — | Panel 访问密钥 |
 | `--token` | — | 自动生成 | Agent 访问 Token |
@@ -182,9 +186,9 @@ Agent 启动前，须准备核心配置并挂载整个配置目录，以支持�
 | `--acme-dir` | — | 自动定位，见 TLS 证书复用 | 覆盖 ACME 缓存根目录 |
 | `--sing-box-version` | — | `latest` | 要安装的核心版本；默认最新稳定版，支持带或不带 `v` |
 | `--skip-sing-box` | — | 不启用 | 跳过核心安装，使用已有核心 |
-| `--sing-box-binary` | — | 从 PATH 查找，找不到时安装至 `/var/lib/sing-box-manager-agent/bin/sing-box` | 核心程序位置 |
-| `--sing-box-config` | — | `/etc/sing-box-manager-agent/sing-box.json` | 需预先准备的核心单文件配置 |
-| `--work-dir` | — | `/var/lib/sing-box-manager-agent` | 核心工作目录 |
+| `--sing-box-binary` | — | 从 PATH 查找，找不到时安装至 `/usr/local/bin/sing-box` | 核心程序位置 |
+| `--sing-box-config` | — | `/etc/sing-box` | 核心配置目录，放入一份任意文件名的 `.json` 配置 |
+| `--work-dir` | — | `/var/lib/sing-box` | 核心工作目录 |
 | `--auto-start true/false` | — | `true` | 是否随 Agent 启动核心 |
 | `--service` | — | `sing-box` | 待接管的已有核心服务名 |
 | `--help` / `-h` | 不启用 | 不启用 | 显示脚本参数并退出 |
@@ -231,16 +235,16 @@ Panel 访问密钥须为 1–1024 个可见 ASCII 字符，不含空格。证书
 | `AGENT_SERVICE` | `sing-box` | 核心服务标识；容器内仍由 Agent 直接管理核心进程 |
 | `SING_BOX_VERSION` | `latest` | 要安装的核心版本，默认最新稳定版 |
 | `SING_BOX_AUTO_INSTALL` | `true` | 启动时按需安装核心；使用自行提供的程序时可设为 `false` |
-| `SING_BOX_BINARY` | `/var/lib/sing-box-manager-agent/bin/sing-box` | 核心程序位置 |
-| `SING_BOX_CONFIG` | `/etc/sing-box-manager-agent/sing-box.json` | 需预先准备的核心单文件配置 |
-| `SING_BOX_WORK_DIR` | `/var/lib/sing-box-manager-agent` | 核心工作目录，核心配置中的相对路径以此为基准 |
+| `SING_BOX_BINARY` | `/var/lib/sing-box/bin/sing-box` | 核心程序位置 |
+| `SING_BOX_CONFIG` | `/etc/sing-box` | 核心配置目录，放入一份任意文件名的 `.json` 配置；通过 `-C` 加载 |
+| `SING_BOX_WORK_DIR` | `/var/lib/sing-box` | 核心工作目录，核心配置中的相对路径以此为基准 |
 | `SING_BOX_AUTO_START` | `true` | 是否随 Agent 启动核心；`false` 时仅运行 Agent，须已有可加载的证书 |
 
 Docker 中的 Agent 默认从环境变量启动。脚本安装时，持久化的配置由安装脚本参数设置。自动生成的密钥只在生成时输出；日志清理后可从密钥文件读取，更新时须保留对应的数据目录。
 
 | 系统变量 | 镜像默认值 | 用途 |
 | --- | --- | --- |
-| `XDG_DATA_HOME` | `/var/lib/sing-box-manager-agent` | 核心与 Agent 共同使用的默认数据根目录；ACME 缓存位于其 `certmagic/` 子目录 |
+| `XDG_DATA_HOME` | 未设置 | 可覆盖默认 ACME 数据根目录，缓存位于其 `certmagic/` 子目录；未设置时使用 `$HOME/.local/share/certmagic` |
 
 </details>
 

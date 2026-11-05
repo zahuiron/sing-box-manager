@@ -18,9 +18,9 @@ LABEL org.opencontainers.image.title="sing-box-manager-agent" \
 COPY --from=build /out/sing-box-manager-agent /usr/local/bin/sing-box-manager-agent
 COPY LICENSE NOTICE /usr/share/licenses/sing-box-manager-agent/
 COPY licenses/Go-LICENSE.txt licenses/Go-PATENTS.txt /usr/share/licenses/sing-box-manager-agent/licenses/
-RUN mkdir -p /etc/sing-box-manager-agent /var/lib/sing-box-manager-agent
-ENV SING_BOX_MANAGER_AGENT_ENVIRONMENT=docker SING_BOX_BINARY=/var/lib/sing-box-manager-agent/bin/sing-box SING_BOX_VERSION=latest \
-    AGENT_TOKEN_FILE=/var/lib/sing-box-manager-agent/agent.key XDG_DATA_HOME=/var/lib/sing-box-manager-agent
+RUN mkdir -p /etc/sing-box /var/lib/sing-box /var/lib/sing-box-manager-agent /root/.local/share/certmagic
+ENV SING_BOX_MANAGER_AGENT_ENVIRONMENT=docker SING_BOX_BINARY=/var/lib/sing-box/bin/sing-box SING_BOX_VERSION=latest \
+    AGENT_TOKEN_FILE=/var/lib/sing-box-manager-agent/agent.key
 EXPOSE 9091
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/local/bin/sing-box-manager-agent"]

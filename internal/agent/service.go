@@ -49,7 +49,10 @@ func (s *processService) Version(ctx context.Context) (string, error) {
 }
 
 func (s *processService) Check(ctx context.Context, path string) error {
-	result, err := s.run(ctx, s.cfg.WorkDir, s.cfg.Binary, "check", "-D", s.cfg.WorkDir, "-c", path)
+	if _, err := configurationFile(path); err != nil {
+		return err
+	}
+	result, err := s.run(ctx, s.cfg.WorkDir, s.cfg.Binary, "check", "-D", s.cfg.WorkDir, "-C", path)
 	if err != nil || result.Code != 0 {
 		return commandError(result, err)
 	}

@@ -17,7 +17,7 @@ func GenerateToken() (string, error) {
 
 func defaultEnvConfig() Config {
 	return Config{Listen: ":9091", Service: ServiceConfig{Driver: "process", Name: "sing-box",
-		Binary: "sing-box", Config: "/etc/sing-box-manager-agent/sing-box.json", WorkDir: "/var/lib/sing-box-manager-agent"}}
+		Binary: "sing-box", Config: "/etc/sing-box", WorkDir: "/var/lib/sing-box"}}
 }
 
 func applyEnvironment(cfg Config) (Config, error) {

@@ -74,7 +74,12 @@ func (s *processService) start(ctx context.Context) error {
 		}
 		return fmt.Errorf("service is %s", state)
 	}
-	cmd := exec.Command(s.cfg.Binary, "run", "-D", s.cfg.WorkDir, "-c", s.cfg.Config)
+	if _, err := configurationFile(s.cfg.Config); err != nil {
+		s.state = "failed"
+		s.procMu.Unlock()
+		return err
+	}
+	cmd := exec.Command(s.cfg.Binary, "run", "-D", s.cfg.WorkDir, "-C", s.cfg.Config)
 	cmd.Dir, cmd.Env = s.cfg.WorkDir, commandEnvironment()
 	configureProcess(cmd)
 	out := newLineWriter(func(p []byte) error { s.logs.append(p); return nil })

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type apiError struct {
@@ -25,7 +26,48 @@ func problem(status int, code, message string) error {
 
 func configETag(data []byte) string { return fmt.Sprintf(`"%x"`, sha256.Sum256(data)) }
 
-func readConfig(path string) ([]byte, os.FileInfo, error) {
+func configurationDirectory(path string) (string, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode().IsRegular() {
+		path = filepath.Dir(path)
+	} else if !info.IsDir() {
+		return "", errors.New("configuration directory must not be a symlink")
+	}
+	if _, err := configurationFile(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func configurationFile(directory string) (string, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return "", err
+	}
+	var path string
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		if path != "" {
+			return "", errors.New("sing-box configuration directory must contain only one .json configuration file")
+		}
+		path = filepath.Join(directory, entry.Name())
+	}
+	if path == "" {
+		return "", fmt.Errorf("no .json configuration file found in %s", directory)
+	}
+	return path, nil
+}
+
+func readConfig(directory string) ([]byte, os.FileInfo, error) {
+	path, err := configurationFile(directory)
+	if err != nil {
+		return nil, nil, err
+	}
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, nil, err
@@ -55,20 +97,15 @@ func validateConfig(ctx context.Context, cfg ServiceConfig, service Service, con
 	if len(content) > MaxConfigBytes {
 		return problem(413, "config_too_large", "configuration exceeds 2 MiB")
 	}
-	f, err := os.CreateTemp(filepath.Dir(cfg.Config), ".sing-box-manager-agent-check-*")
+	directory, err := os.MkdirTemp(cfg.Config, ".sing-box-manager-agent-check-*")
 	if err != nil {
 		return err
 	}
-	path := f.Name()
-	defer os.Remove(path)
-	if _, err := f.Write(content); err != nil {
-		_ = f.Close()
+	defer os.RemoveAll(directory)
+	if err := os.WriteFile(filepath.Join(directory, "config.json"), content, 0600); err != nil {
 		return err
 	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	if err := service.Check(ctx, path); err != nil {
+	if err := service.Check(ctx, directory); err != nil {
 		return &apiError{Status: 422, Code: "invalid_config", Err: err}
 	}
 	return nil
@@ -115,6 +152,7 @@ func saveConfig(ctx context.Context, cfg ServiceConfig, service Service, content
 	if err != nil {
 		return result, err
 	}
+	path := filepath.Join(cfg.Config, info.Name())
 	if configETag(previous) != expected {
 		return result, problem(412, "config_conflict", "configuration changed; read it again before saving")
 	}
@@ -131,17 +169,17 @@ func saveConfig(ctx context.Context, cfg ServiceConfig, service Service, content
 			return result, problem(409, "service_busy", "service is changing state")
 		}
 	}
-	current, _, err := readConfig(cfg.Config)
+	current, currentInfo, err := readConfig(cfg.Config)
 	if err != nil {
 		return result, err
 	}
-	if configETag(current) != expected {
+	if currentInfo.Name() != info.Name() || configETag(current) != expected {
 		return result, problem(412, "config_conflict", "configuration changed during validation")
 	}
-	if err := writeAtomic(cfg.Config+".bak", previous, info); err != nil {
+	if err := writeAtomic(path+".bak", previous, info); err != nil {
 		return result, fmt.Errorf("create configuration backup: %w", err)
 	}
-	if err := writeAtomic(cfg.Config, content, info); err != nil {
+	if err := writeAtomic(path, content, info); err != nil {
 		return result, fmt.Errorf("write configuration: %w", err)
 	}
 	result.ETag, result.State = configETag(content), state
@@ -156,15 +194,15 @@ func saveConfig(ctx context.Context, cfg ServiceConfig, service Service, content
 	// Recovery has its own deadline: a failed restart may consume the request budget.
 	recoveryCtx, cancel := context.WithTimeout(context.Background(), operationTimeout)
 	defer cancel()
-	current, _, err = readConfig(cfg.Config)
-	if err != nil || configETag(current) != result.ETag {
+	current, currentInfo, err = readConfig(cfg.Config)
+	if err != nil || currentInfo.Name() != info.Name() || configETag(current) != result.ETag {
 		result.ETag = ""
 		if err == nil {
 			result.ETag = configETag(current)
 		}
 		return result, problem(502, "rollback_conflict", "apply failed; configuration changed or cannot be read, so recovery was not attempted")
 	}
-	if err := writeAtomic(cfg.Config, previous, info); err != nil {
+	if err := writeAtomic(path, previous, info); err != nil {
 		return result, problem(502, "rollback_failed", "apply failed and the previous configuration could not be restored; inspect the .bak file")
 	}
 	result.ETag = expected

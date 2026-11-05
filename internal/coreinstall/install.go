@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"debug/elf"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -75,11 +76,16 @@ func Install(ctx context.Context, version, destination string) (string, error) {
 	if cached(destination, resolved) {
 		return resolved, nil
 	}
-	name := "sing-box-" + resolved + "-linux-" + runtime.GOARCH
-	var download, digest string
-	for _, asset := range info.Assets {
-		if asset.Name == name+".tar.gz" {
-			download, digest = asset.URL, asset.Digest
+	baseName := "sing-box-" + resolved + "-linux-" + runtime.GOARCH
+	var name, download, digest string
+	for _, candidate := range []string{baseName + "-musl", baseName} {
+		for _, asset := range info.Assets {
+			if asset.Name == candidate+".tar.gz" {
+				name, download, digest = candidate, asset.URL, asset.Digest
+				break
+			}
+		}
+		if download != "" {
 			break
 		}
 	}
@@ -141,6 +147,9 @@ func Install(ctx context.Context, version, destination string) (string, error) {
 		if _, err := io.Copy(io.MultiWriter(binary, hash), reader); err != nil {
 			return "", err
 		}
+		if err := validateExecutable(binary); err != nil {
+			return "", err
+		}
 		if err := binary.Chmod(0755); err != nil {
 			return "", err
 		}
@@ -173,12 +182,33 @@ func cached(path, version string) bool {
 	}
 	defer f.Close()
 	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 || validateExecutable(f) != nil {
 		return false
 	}
 	hash := sha256.New()
 	_, err = io.Copy(hash, f)
 	return err == nil && hex.EncodeToString(hash.Sum(nil)) == saved.SHA256
+}
+
+func validateExecutable(binary *os.File) error {
+	executable, err := elf.NewFile(binary)
+	if err != nil {
+		return fmt.Errorf("read sing-box executable: %w", err)
+	}
+	machine := elf.EM_X86_64
+	if runtime.GOARCH == "arm64" {
+		machine = elf.EM_AARCH64
+	}
+	if executable.Class != elf.ELFCLASS64 || executable.Data != elf.ELFDATA2LSB || executable.Machine != machine ||
+		executable.Type != elf.ET_EXEC && executable.Type != elf.ET_DYN {
+		return fmt.Errorf("sing-box archive does not contain a Linux %s executable", runtime.GOARCH)
+	}
+	for _, program := range executable.Progs {
+		if program.Type == elf.PT_INTERP {
+			return errors.New("sing-box archive requires a dynamic linker; use a release with a static musl build")
+		}
+	}
+	return nil
 }
 
 func get(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
